@@ -13,15 +13,21 @@
 
 class Tensor;
 
+Tensor* newTensor(Schma& schema){
+    Tensor* result = new Tensor(schema);
+    result->content = new float[result->getSize()];
+    return result;
+}
+
 // // Basic Op
-// Tensor* operator+(Tensor* t1, Tensor* t2);
+Tensor* operator+(Tensor* t1, Tensor* t2);
 // Tensor* operator+(int a, Tensor* tensor);
 // Tensor* operator+(float a, Tensor* tensor);
 // Tensor* operator+(double a, Tensor* tensor);
 // Tensor* operator+(Tensor* tensor, int a);
 // Tensor* operator+(Tensor* tensor, float a);
 // Tensor* operator+(Tensor* tensor, double a);
-// Tensor* operator-(Tensor* t1, Tensor* t2);
+Tensor* operator-(Tensor* t1, Tensor* t2);
 // Tensor* operator-(int a, Tensor* tensor);
 // Tensor* operator-(float a, Tensor* tensor);
 // Tensor* operator-(double a, Tensor* tensor);
@@ -53,6 +59,11 @@ Tensor* pow(float a, Tensor* tensor);
 // sqrt
 Tensor* sqrt(Tensor* tensor);
 
+// isCompatible
+bool isCompatible(Tensor* t1, Tensor* t2){
+    return isCompatible(t1->schema,t2->schema);
+}
+
 class Tensor{
 private:
     Schema schema;
@@ -76,6 +87,7 @@ public:
     float& get(int* index);
     float& get(std::vector<int> index);
     // friends
+    bool isCompatible(Tensor* t1, Tensor* t2);
     // Matrix Multiplication
     friend Tensor* matmul(Tensor* t1, Tensor* t2);
     // exp and log
@@ -90,6 +102,32 @@ public:
     // sqrt
     friend Tensor* sqrt(Tensor* tensor);
     void sqrt();
+    // Basic Op
+    friend Tensor* operator+(Tensor* t1, Tensor* t2);
+    // friend Tensor* operator+(int a, Tensor* tensor);
+    // friend Tensor* operator+(float a, Tensor* tensor);
+    // friend Tensor* operator+(double a, Tensor* tensor);
+    // friend Tensor* operator+(Tensor* tensor, int a);
+    // friend Tensor* operator+(Tensor* tensor, float a);
+    // friend Tensor* operator+(Tensor* tensor, double a);
+    friend Tensor* operator-(Tensor* t1, Tensor* t2);
+    // friend Tensor* operator-(int a, Tensor* tensor);
+    // friend Tensor* operator-(float a, Tensor* tensor);
+    // friend Tensor* operator-(double a, Tensor* tensor);
+    // friend Tensor* operator-(Tensor* tensor, int a);
+    // friend Tensor* operator-(Tensor* tensor, float a);
+    // friend Tensor* operator-(Tensor* tensor, double a);
+    // friend Tensor* operator*(Tensor* t1, Tensor* t2);
+    // friend Tensor* operator*(int a, Tensor* tensor);
+    // friend Tensor* operator*(float a, Tensor* tensor);
+    // friend Tensor* operator*(double a, Tensor* tensor);
+    // friend Tensor* operator*(Tensor* tensor, int a);
+    // friend Tensor* operator*(Tensor* tensor, float a);
+    // friend Tensor* operator*(Tensor* tensor, double a);
+    // friend Tensor* operator/(Tensor* t1, Tensor* t2);
+    // friend Tensor* operator/(Tensor* tensor, int a);
+    // friend Tensor* operator/(Tensor* tensor, float a);
+    // friend Tensor* operator/(Tensor* tensor, double a);
 
     // test print
     void print();

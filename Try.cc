@@ -24,8 +24,6 @@ int main(){
     fc1_weight.reshape(3,{1,4,2});
     fc2_weight.reshape(3,{1,1,4});
     Tensor* mid = matmul(&fc1_weight, &input);
-    mid->print();
-    mid->printShape();
     Tensor* result = matmul(&fc2_weight, mid);
     result->printShape();
     result->print();

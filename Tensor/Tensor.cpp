@@ -87,7 +87,7 @@ Tensor* matmul(Tensor* t1, Tensor* t2){
             }
         }
     }
-    
+
     // (N1,m,k) -> (...,m,k)
     result->schema.setShape(resShape);
     result->schema.setKdim(-2, m);
@@ -98,8 +98,7 @@ Tensor* matmul(Tensor* t1, Tensor* t2){
 
 // Exp and Log
 Tensor* log(Tensor* tensor){
-    Tensor* result = new Tensor(tensor->schema);
-    result->content = new float[result->getSize()];
+    Tensor* result = newTensor(t1->schema);
     for (int j=0; j<tensor->getSize(); ++j){
         result->content[j] = std::log(tensor->content[j]);
     }
@@ -107,16 +106,14 @@ Tensor* log(Tensor* tensor){
 }
 Tensor* log(Tensor* tensor, float a){
     float k = log(a);
-    Tensor* result = new Tensor(tensor->schema);
-    result->content = new float[result->getSize()];
+    Tensor* result = newTensor(t1->schema);
     for (int j=0; j<tensor->getSize(); ++j){
         result->content[j] = std::log(tensor->content[j])/k;
     }
     return result;
 }
 Tensor* exp(Tensor* tensor){
-    Tensor* result = new Tensor(tensor->schema);
-    result->content = new float[result->getSize()];
+    Tensor* result = newTensor(t1->schema);
     for (int j=0; j<tensor->getSize(); ++j){
         result->content[j] = std::exp(tensor->content[j]);
     }
@@ -124,8 +121,7 @@ Tensor* exp(Tensor* tensor){
 }
 // a is exponent.
 Tensor* pow(Tensor* tensor, float a){
-    Tensor* result = new Tensor(tensor->schema);
-    result->content = new float[result->getSize()];
+    Tensor* result = newTensor(t1->schema);
     for (int j=0; j<tensor->getSize(); ++j){
         result->content[j] = std::pow(tensor->content[j],a);
     }
@@ -133,8 +129,7 @@ Tensor* pow(Tensor* tensor, float a){
 }
 // a is base.
 Tensor* pow(float a, Tensor* tensor){
-    Tensor* result = new Tensor(tensor->schema);
-    result->content = new float[result->getSize()];
+    Tensor* result = newTensor(t1->schema);
     for (int j=0; j<tensor->getSize(); ++j){
         result->content[j] = std::pow(a,tensor->content[j]);
     }
@@ -159,8 +154,7 @@ void Tensor::exp(){
 
 // sqrt
 Tensor* sqrt(Tensor* tensor){
-    Tensor* result = new Tensor(tensor->schema);
-    result->content = new float[result->getSize()];
+    Tensor* result = newTensor(t1->schema);
     for (int j=0; j<tensor->getSize(); ++j){
         result->content[j] = std::sqrt(tensor->content[j]);
     }
@@ -170,6 +164,24 @@ void Tensor::sqrt(){
     for (int j=0; j<this->getSize(); ++j){
         this->content[j] = std::sqrt(this->content[j]);
     }
+}
+
+// Basic Op
+Tensor* operator+(Tensor* t1, Tensor* t2){
+    if (!isCompatible(t1,t2)) return NULL;
+    Tensor* result = newTensor(t1->schema);
+    for (int j=0;j<t1->getSize();++j){
+        result->content[j] = t1->content[j] + t2->content;
+    }
+    return result;
+}
+Tensor* operator-(Tensor* t1, Tensor* t2){
+    if (!isCompatible(t1,t2)) return NULL;
+    Tensor* result = newTensor(t1->schema);
+    for (int j=0;j<t1->getSize();++j){
+        result->content[j] = t1->content[j] - t2->content;
+    }
+    return result;
 }
 
 // test print! Not for real purpose!
