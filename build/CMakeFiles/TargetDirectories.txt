@@ -1,0 +1,4 @@
+C:/Users/hzx/Desktop/Cache/cmake/build/CMakeFiles/Try.dir
+C:/Users/hzx/Desktop/Cache/cmake/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/hzx/Desktop/Cache/cmake/build/CMakeFiles/ZERO_CHECK.dir
+C:/Users/hzx/Desktop/Cache/cmake/build/Tensor/CMakeFiles/Tensor.dir
