@@ -43,3 +43,18 @@ void Schema::setKdim(int k, int d){
     this->Shape[k] = d;
     return;
 }
+
+void Schema::print(){
+    printf("Shape: [");
+    for(int j=0;j<this->dim;++j){
+        printf("%d, ", this->Shape[j]);
+    }
+    printf("]\n");
+}
+
+std::vector<int> Schema::getShape(){
+    return this->Shape;
+}
+void Schema::setShape(std::vector<int> shape){
+    this->Shape=shape;
+}

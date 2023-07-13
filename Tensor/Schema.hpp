@@ -26,6 +26,11 @@ public:
     int getDim();
     int getSize();
     int getKdim(int k);
+    bool& require_grad(){return this->isGrad;}
+    std::vector<int> getShape();
+    void setShape(std::vector<int> shape);
+    // test print
+    void print();
 };
 
 
