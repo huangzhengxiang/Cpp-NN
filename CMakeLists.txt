@@ -9,8 +9,10 @@ add_subdirectory(Tensor)
 add_executable(Try Try.cc)
 
 target_link_libraries(Try PUBLIC Tensor)
+target_link_libraries(Try PUBLIC nn)
 target_include_directories(
     Try PUBLIC 
     "${PROJECT_BINARY_DIR}"
     "${PROJECT_SOURCE_DIR}/TENSOR"
+    "${PROJECT_SOURCE_DIR}/nn"
 )
