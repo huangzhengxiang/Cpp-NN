@@ -6,6 +6,14 @@
  */
 #include "Schema.hpp"
 
+bool isCompatible(Schema& t1, Schema& t2){
+    if (t1.getDim()!=t2.getDim()) return false;
+    for (int j=0;j<t1.getDim();++j){
+        if (t1.getKdim(j)!=t2.getKdim(j)) return false;
+    }
+    return true;
+}
+
 Schema::Schema(int d, std::vector<int> s, bool grad){
     this->dim=d;
     this->Shape=s;

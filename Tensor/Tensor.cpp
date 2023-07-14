@@ -9,6 +9,15 @@
 #include "Schema.hpp"
 #include "Tensor.hpp"
 
+Tensor* newTensor(Schema& schema){
+    Tensor* result = new Tensor(schema);
+    result->content = new float[result->getSize()];
+    return result;
+}
+bool isCompatible(Tensor& t1, Tensor& t2){
+    return isCompatible(t1.schema,t2.schema);
+}
+
 Tensor::Tensor(int d, std::vector<int> s, bool grad):schema(d, s, grad){}
 Tensor::Tensor(int d, int* s, bool grad):schema(d, s, grad){}
 Tensor::Tensor(Schema other):schema(other){}
@@ -51,25 +60,25 @@ float& Tensor::get(std::vector<int> index){
     return this->content[real_idx];
 }
 
-Tensor* matmul(Tensor* t1, Tensor* t2){
+Tensor* matmul(Tensor& t1, Tensor& t2){
     // (...,m,n) @ (...,n,k)
-    int m = t1->getKdim(-2);
-    int n = t1->getKdim(-1);
-    if (n!=t2->getKdim(-2)) return NULL;
-    int k = t2->getKdim(-1);
-    int N1 = t1->getSize()/(m*n);
-    int N2 = t2->getSize()/(n*k);
-    if ((N1!=N2) || (t1->getDim()!=t2->getDim())) return NULL;// No broadcasting for now!
+    int m = t1.getKdim(-2);
+    int n = t1.getKdim(-1);
+    if (n!=t2.getKdim(-2)) return NULL;
+    int k = t2.getKdim(-1);
+    int N1 = t1.getSize()/(m*n);
+    int N2 = t2.getSize()/(n*k);
+    if ((N1!=N2) || (t1.getDim()!=t2.getDim())) return NULL;// No broadcasting for now!
 
     // reshape to (N1,m,n) @ (N2,n,k)
-    std::vector<int> resShape = t1->schema.getShape();
-    t1 = new Tensor(t1->schema,t1->content);
-    t2 = new Tensor(t2->schema,t2->content);
-    t1->reshape(3,{N1,m,n});
-    t2->reshape(3,{N2,n,k});
+    std::vector<int> resShape = t1.schema.getShape();
+    Tensor* tensor1 = new Tensor(t1.schema,t1.content);
+    Tensor* tensor2 = new Tensor(t2.schema,t2.content);
+    tensor1->reshape(3,{N1,m,n});
+    tensor2->reshape(3,{N2,n,k});
     
     // initialize the result matrix (N1,m,k)
-    Tensor* result = new Tensor(t1->schema);
+    Tensor* result = new Tensor(tensor1->schema);
     result->schema.setKdim(-2, m);
     result->schema.setKdim(-1, k);
     result->content = new float[result->getSize()];
@@ -80,8 +89,8 @@ Tensor* matmul(Tensor* t1, Tensor* t2){
             for (int jr=0;jr<k;++jr){
                 float temp = 0.0;
                 for (int b=0;b<n;++b){
-                    temp += t1->get({i,jl,b}) * t2->get({i,b,jr});
-                    // temp += t1->content[i*m*n+jl*n+b] * t2->content[i*n*k+b*k+jr];
+                    temp += tensor1->get({i,jl,b}) * tensor2->get({i,b,jr});
+                    // temp += tensor1->content[i*m*n+jl*n+b] * tensor2->content[i*n*k+b*k+jr];
                 }
                 result->get({i,jl,jr}) = temp;
             }
@@ -97,41 +106,41 @@ Tensor* matmul(Tensor* t1, Tensor* t2){
 }
 
 // Exp and Log
-Tensor* log(Tensor* tensor){
-    Tensor* result = newTensor(t1->schema);
-    for (int j=0; j<tensor->getSize(); ++j){
-        result->content[j] = std::log(tensor->content[j]);
+Tensor* log(Tensor& tensor){
+    Tensor* result = newTensor(tensor.schema);
+    for (int j=0; j<tensor.getSize(); ++j){
+        result->content[j] = std::log(tensor.content[j]);
     }
     return result;
 }
-Tensor* log(Tensor* tensor, float a){
+Tensor* log(Tensor& tensor, float a){
     float k = log(a);
-    Tensor* result = newTensor(t1->schema);
-    for (int j=0; j<tensor->getSize(); ++j){
-        result->content[j] = std::log(tensor->content[j])/k;
+    Tensor* result = newTensor(tensor.schema);
+    for (int j=0; j<tensor.getSize(); ++j){
+        result->content[j] = std::log(tensor.content[j])/k;
     }
     return result;
 }
-Tensor* exp(Tensor* tensor){
-    Tensor* result = newTensor(t1->schema);
-    for (int j=0; j<tensor->getSize(); ++j){
-        result->content[j] = std::exp(tensor->content[j]);
+Tensor* exp(Tensor& tensor){
+    Tensor* result = newTensor(tensor.schema);
+    for (int j=0; j<tensor.getSize(); ++j){
+        result->content[j] = std::exp(tensor.content[j]);
     }
     return result;
 }
 // a is exponent.
-Tensor* pow(Tensor* tensor, float a){
-    Tensor* result = newTensor(t1->schema);
-    for (int j=0; j<tensor->getSize(); ++j){
-        result->content[j] = std::pow(tensor->content[j],a);
+Tensor* pow(Tensor& tensor, float a){
+    Tensor* result = newTensor(tensor.schema);
+    for (int j=0; j<tensor.getSize(); ++j){
+        result->content[j] = std::pow(tensor.content[j],a);
     }
     return result;
 }
 // a is base.
-Tensor* pow(float a, Tensor* tensor){
-    Tensor* result = newTensor(t1->schema);
-    for (int j=0; j<tensor->getSize(); ++j){
-        result->content[j] = std::pow(a,tensor->content[j]);
+Tensor* pow(float a, Tensor& tensor){
+    Tensor* result = newTensor(tensor.schema);
+    for (int j=0; j<tensor.getSize(); ++j){
+        result->content[j] = std::pow(a,tensor.content[j]);
     }
     return result;
 }
@@ -153,10 +162,10 @@ void Tensor::exp(){
 }
 
 // sqrt
-Tensor* sqrt(Tensor* tensor){
-    Tensor* result = newTensor(t1->schema);
-    for (int j=0; j<tensor->getSize(); ++j){
-        result->content[j] = std::sqrt(tensor->content[j]);
+Tensor* sqrt(Tensor& tensor){
+    Tensor* result = newTensor(tensor.schema);
+    for (int j=0; j<tensor.getSize(); ++j){
+        result->content[j] = std::sqrt(tensor.content[j]);
     }
     return result;
 }
@@ -167,23 +176,30 @@ void Tensor::sqrt(){
 }
 
 // Basic Op
-Tensor* operator+(Tensor* t1, Tensor* t2){
+Tensor* operator+(Tensor& t1, Tensor& t2){
     if (!isCompatible(t1,t2)) return NULL;
-    Tensor* result = newTensor(t1->schema);
-    for (int j=0;j<t1->getSize();++j){
-        result->content[j] = t1->content[j] + t2->content;
+    Tensor* result = newTensor(t1.schema);
+    for (int j=0;j<t1.getSize();++j){
+        result->content[j] = t1.content[j] + t2.content[j];
     }
     return result;
 }
-Tensor* operator-(Tensor* t1, Tensor* t2){
+Tensor* operator-(Tensor& t1, Tensor& t2){
     if (!isCompatible(t1,t2)) return NULL;
-    Tensor* result = newTensor(t1->schema);
-    for (int j=0;j<t1->getSize();++j){
-        result->content[j] = t1->content[j] - t2->content;
+    Tensor* result = newTensor(t1.schema);
+    for (int j=0;j<t1.getSize();++j){
+        result->content[j] = t1.content[j] - t2.content[j];
     }
     return result;
 }
-
+Tensor* operator*(Tensor& t1, Tensor& t2){
+    if (!isCompatible(t1,t2)) return NULL;
+    Tensor* result = newTensor(t1.schema);
+    for (int j=0;j<t1.getSize();++j){
+        result->content[j] = t1.content[j] * t2.content[j];
+    }
+    return result;
+}
 // test print! Not for real purpose!
 void Tensor::print(){
     printf("Tensor: [");
