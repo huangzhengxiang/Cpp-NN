@@ -14,55 +14,100 @@ bool isCompatible(Schema& t1, Schema& t2){
     return true;
 }
 
-Schema::Schema(int d, std::vector<int> s, bool grad){
-    this->dim=d;
-    this->Shape=s;
+std::vector<int> Schema::axis_map_inv(){
+    std::vector<int> result(this->getDim(),0);
+    for (int j=0;j<this->getDim();++j){
+        result[this->axis_map[j]]=j;
+    }
+    return result;
+}
+
+// initialization
+Schema::Schema(std::vector<int> shape, bool grad){
+    this->real_shape=shape;
+    for (int j=0; j<shape.size();++j){
+        this->axis_map.push_back(j);
+    }
+    this->a_inv = this->axis_map_inv();
     this->isGrad=grad;
 }
-Schema::Schema(int d, int* s, bool grad){
-    this->dim=d;
-    for(int j=0;j<d;++j){
-        this->Shape.push_back(s[j]);
+Schema::Schema(int d, int* shape, bool grad){
+    for (int j=0; j<d;++j){
+        this->real_shape.push_back(shape[j]);
+        this->axis_map.push_back(j);
     }
+    this->a_inv = this->axis_map_inv();
+    this->isGrad=grad;
+}
+Schema::Schema(std::vector<int> shape, std::vector<int> axis_perm, bool grad){
+    this->real_shape=shape;
+    this->axis_map=axis_perm;
+    this->a_inv = this->axis_map_inv();
     this->isGrad=grad;
 }
 Schema::Schema(Schema& other){
-    this->dim=other.dim;
-    this->Shape=other.Shape;
+    this->real_shape=other.real_shape;
+    this->axis_map=other.axis_map;
+    this->a_inv = this->axis_map_inv();
     this->isGrad=other.isGrad;
 }
 
 int Schema::getDim(){
-    return this->dim;
+    return this->real_shape.size();
 }
 int Schema::getSize(){
     int result = 1;
-    for (int j=0;j<this->dim;++j){
-        result *= this->Shape[j];
+    for (int j=0;j<this->getDim();++j){
+        result *= this->real_shape[j];
     }
     return result;
 }
 int Schema::getKdim(int k){
-    k = (k>=0) ? (k) : (this->dim + k);
-    return this->Shape[k];
+    k = (k>=0) ? (k) : (this->getDim() + k);
+    return this->real_shape[this->a_inv[k]];
 }
 void Schema::setKdim(int k, int d){
-    k = (k>=0) ? (k) : (this->dim + k);
-    this->Shape[k] = d;
+    k = (k>=0) ? (k) : (this->getDim() + k);
+    this->real_shape[this->a_inv[k]] = d;
     return;
 }
 
 void Schema::print(){
-    printf("Shape: [");
-    for(int j=0;j<this->dim;++j){
-        printf("%d, ", this->Shape[j]);
+    printf("Real Shape: [");
+    for(int j=0;j<this->getDim();++j){
+        printf("%d, ", this->real_shape[j]);
     }
     printf("]\n");
+    printf("External Shape: [");
+    std::vector<int> external_shape = this->getShape();
+    for(int j=0;j<this->getDim();++j){
+        printf("%d, ", external_shape[j]);
+    }
+    printf("]\n\n");
 }
 
 std::vector<int> Schema::getShape(){
-    return this->Shape;
+    std::vector<int> external_shape(this->getDim(),0);
+    for(int j=0;j<this->getDim();++j){
+        external_shape[j]=this->real_shape[this->a_inv[j]];
+    }
+    return external_shape;
 }
-void Schema::setShape(std::vector<int> shape){
-    this->Shape=shape;
+std::vector<int> Schema::realShape(){
+    return this->real_shape;
+}
+
+// permute upon the external shape.
+void Schema::permute(std::vector<int> axis_perm){
+    // permute the inverse.
+    std::vector<int> new_inv(this->getDim(),0);
+    for(int j=0;j<this->getDim();++j){
+        new_inv[j]=this->a_inv[axis_perm[j]];
+    }
+    this->a_inv=new_inv;
+    // resolve the origin.
+    for(int j=0;j<this->getDim();++j){
+        this->axis_map[new_inv[j]]=j;
+    }
+    return;
 }
