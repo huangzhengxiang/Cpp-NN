@@ -1,7 +1,7 @@
 #ifndef LINEAR_HPP_
 #define LINEAR_HPP_
 
-#include "Tensor.hpp"
+#include "CppNN/Tensor.hpp"
 
 class Linear;
 
@@ -15,14 +15,14 @@ private:
 public:
     Linear(){}
     Linear(int in_dim, int out_dim, bool bias_on):in_features(in_dim),out_features(out_dim),require_bias(bias_on){}
-    Linear(int in_dim, int out_dim, bool bias_on, Tensor* w, Tensor* b, bool bias_on):in_features(in_dim),out_features(out_dim),require_bias(bias_on){
+    Linear(int in_dim, int out_dim, bool bias_on, Tensor* w, Tensor* b):in_features(in_dim),out_features(out_dim),require_bias(bias_on){
         this->init(w,b);
     }
     void init(Tensor* w, Tensor* b){
         this->weight=w;
         this->bias=b;
-        this->weight->reshape(out_dim,in_dim);
-        this->bias->reshape(out_dim);
+        this->weight->view({this->out_features,this->in_features});
+        this->bias->view({this->out_features,1});
     }
     Tensor* forward(Tensor& input);
     ~Linear(){}

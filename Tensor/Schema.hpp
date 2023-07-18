@@ -35,6 +35,7 @@ public:
     int getDim();
     int getSize();
     int getKdim(int k);
+    int realKdim(int k){return this->real_shape[k];}
     bool& require_grad(){return this->isGrad;}
     std::vector<int> getShape(); // external shape
     std::vector<int> realShape();//real shape

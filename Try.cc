@@ -1,7 +1,10 @@
 #include <iostream>
-#include "Tensor.hpp"
+#include "CppNN/Tensor.hpp"
 #include "Network.hpp"
-#include "nn.hpp"
+
+#ifdef COMPLETE_TEST
+
+#include "include/nn.hpp"
 
 int main(){
     // x
@@ -29,3 +32,55 @@ int main(){
     result->print();
     return 0;
 }
+
+#else
+
+#ifdef UNIT_TEST
+// Unit Test
+
+int main(){
+    // x
+    Tensor input({3,2,1},false);
+    float data[6]={3.,7.,4.,8.,5.,5.}; // 2 inference data points.
+    input.init(data);
+    input.printShape();
+    input.print();
+    // test
+    printf("item: %.4f\n",input.get({1,0,0}));
+    input.view({1,1,3,2,1});
+    printf("item: %.4f\n",input.get({0,0,1,0,0}));
+    input.deview();
+    input.view({3,2,1,1});
+    printf("item: %.4f\n",input.get({1,0,0,0}));
+    input.deview();
+    input.view({3,1,2,1});
+    printf("item: %.4f\n",input.get({1,0,0,0}));
+    input.deview();
+    input.view({6,1,1});
+    printf("item: %.4f\n",input.get({2,0,0}));
+    input.deview();
+    input.view({6});
+    printf("item: %.4f\n",input.get({2}));
+    input.deview();
+    input.view({1,6});
+    printf("item: %.4f\n",input.get({0,2}));
+    input.deview();
+    input.permute({1,0,2});
+    input.printShape();
+    printf("item: %.4f\n",input.get({0,1,0}));
+    input.view({1,6});
+    printf("item: %.4f\n",input.get({0,1}));
+    input.deview();
+    return 0;
+}
+
+#else
+
+int main(){
+    printf("Hello World!\n");
+    return 0;
+}
+
+#endif
+
+#endif
