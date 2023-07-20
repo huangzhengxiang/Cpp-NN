@@ -12,9 +12,6 @@
 
 class Schema;
 
-// isCompatible
-bool isCompatible(Schema& t1, Schema& t2);
-
 class Schema{
 private:
     // All 2 vectors shall be of the same shape!!!

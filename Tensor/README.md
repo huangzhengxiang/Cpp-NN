@@ -9,5 +9,6 @@ The data pointer is stored here.
 - internal access method: external shape Op
 - external access method: user-level shape Op (after view)
 - manipulation: inplace operators / element-wise Op, and all kinds of arithmetic Ops, view, and repeat.
-- caution: therefore, only 1 view can be created at a time.
-- after view(), no permutation is allowed.
+- <b>caution: Only 1 view can be created at a time.</b>
+- <b>after view(), no permutation is allowed.</b>
+### 3. FullIterator (repeat-permitted)

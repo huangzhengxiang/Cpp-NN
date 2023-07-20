@@ -1,4 +1,4 @@
-#idndef CONV1D_HPP_
+#ifndef CONV1D_HPP_
 #define CONV1D_HPP_
 
 class Conv1d{

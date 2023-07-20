@@ -8,14 +8,87 @@
 #include <vector>
 #include "Schema.hpp"
 #include "CppNN/Tensor.hpp"
+#include "TensorIterator.hpp"
 
+Tensor* newTensor(Tensor& tensor){
+    Tensor* result = new Tensor(tensor.schema);
+    result->content = new float[result->getSize()];
+    if(tensor.viewed()) result->view(tensor.getShape());
+    return result;
+}
 Tensor* newTensor(Schema& schema){
     Tensor* result = new Tensor(schema);
     result->content = new float[result->getSize()];
     return result;
 }
+Tensor* zero_like(Tensor& tensor){
+    Tensor* result = new Tensor(tensor.schema);
+    result->content = new float[result->getSize()]{0};
+    if(tensor.viewed()) result->view(tensor.getShape());
+    return result;
+}
 bool isCompatible(Tensor& t1, Tensor& t2){
-    return isCompatible(t1.schema,t2.schema);
+    if (t1.getDim()!=t2.getDim()) return false;
+    for (int j=0;j<t1.getDim();++j){
+        if (t1.getKthdim(j)!=t2.getKthdim(j)) return false;
+    }
+    return true;
+}
+bool isBroadcastCompatible(Tensor& t_big, Tensor& t_small){
+    if (t_big.getDim()!=t_small.getDim()) return false;
+    for (int j=0;j<t_big.getDim();++j){
+        if (t_big.getKthdim(j)!=t_small.getKthdim(j) && t_small.getKthdim(j)!=1) 
+            return false;
+    }
+    return true;
+}
+bool isBroadcastMulCompatible(Tensor& t_left, Tensor& t_right){
+    // (...,m,n) @ (...,n,k)
+    if (t_left.getDim()!=t_right.getDim()) return false;
+    for (int j=0;j<t_left.getDim()-2;++j){
+        if (t_left.getKthdim(j)!=t_left.getKthdim(j) && \
+             t_left.getKthdim(j)!=1 && t_right.getKthdim(j)!=1) 
+            return false;
+    }
+    if (t_left.getKthdim(-1)!=t_right.getKthdim(-2)) return false;
+    return true;
+}
+void initBroadcastMul(Tensor& t_left, Tensor& t_right, FullIterator* it_left, FullIterator* it_right, FullIterator* it_result){
+    // (...,m,n) @ (...,n,k)
+    for (int j=0;j<t_left.getDim()-2;++j){
+        if (t_left.getKthdim(j)!=t_right.getKthdim(j)){
+            if(t_left.getKthdim(j)!=1){
+                it_right->repeat(j,t_left.getKthdim(j));
+            }else{ // t_right.getKthdim(j)!=1
+                it_left->repeat(j,t_right.getKthdim(j));
+            }
+        }
+    }
+    it_left->setSubTensor(-2);
+    it_right->setSubTensor(-2);
+    it_result->setSubTensor(-2);
+    it_left->openSubTensorIterator();
+    it_right->openSubTensorIterator();
+    it_result->openSubTensorIterator();
+}
+
+Tensor* initBroadcast(Tensor& t1, Tensor& t2, FullIterator* it1, FullIterator* it2){
+    Tensor* result=NULL;
+    // The physical shape of the result is the same as that of the bigger tensor or the left one if the same shape.
+    if (isBroadcastCompatible(t1,t2)){
+        // t1 is bigger.
+        result = newTensor(t1);
+        it2->broadcast(t1);
+    }else if(isBroadcastCompatible(t2,t1)){
+        // t1 is bigger.
+        result = newTensor(t2);
+        it1->broadcast(t2);
+    }else{
+        return NULL;
+    }
+    it1->open();
+    it2->open();
+    return result;
 }
 
 // Constructors
@@ -28,6 +101,13 @@ void Tensor::init(float* pointer){
     this->content = pointer;
 }
 
+int Tensor::getDim(){
+    if (!this->isViewed){
+        return this->schema.getDim();
+    }else{
+        return this->user_view.size();
+    }
+}
 int Tensor::getKdim(int k){
     return this->schema.getKdim(k);
 }
@@ -46,23 +126,25 @@ int Tensor::getKthdim(int k){
         return this->schema.getKdim(k);
     }        
     else{
+        k = (k>=0) ? (k) : (this->getDim() + k);
         return this->user_view[k];
     }
 }
-// reshaping
-// void Tensor::reshape(int d, std::vector<int> s){
-//     this->schema = Schema(d,s,this->require_grad());
-// }
-// void Tensor::reshape(int d, int* s){
-//     this->schema = Schema(d,s,this->require_grad());
-// }
 
 // view
+void Tensor::view(){
+    if (this->isViewed) return;
+    // default view = original view
+    this->occupancy_map = std::vector<int>(this->getDim(),1);
+    this->user_view = this->getShape();
+    this->isViewed=true;
+}
 void Tensor::view(std::vector<int> new_view){
     // default as compatible shape! (contiguous reshaping!)
     this->occupancy_map = std::vector<int>();
     this->user_view = new_view;
     this->isViewed=true;
+    // calculate occupancy map!
     int schema_ptr = 0, new_ptr = 0;
     while (new_ptr<new_view.size()-1){
         if (this->getKdim(schema_ptr)==new_view[new_ptr]){
@@ -83,17 +165,17 @@ void Tensor::view(std::vector<int> new_view){
             }
             this->occupancy_map.push_back(cnt); new_ptr++;
         }
-        if (schema_ptr>=this->getDim())
+        if (schema_ptr>=this->schema.getDim())
             break;
     }
-    if (schema_ptr>=this->getDim()){
+    if (schema_ptr>=this->schema.getDim()){
         // redundant 1's at the end!
         while (new_ptr<new_view.size()){
             this->occupancy_map.push_back(0);
             new_ptr++;
         }
     }else{
-        this->occupancy_map.push_back(this->getDim() - schema_ptr);
+        this->occupancy_map.push_back(this->schema.getDim() - schema_ptr);
     }
     // debug
     #ifdef UNIT_TEST
@@ -115,7 +197,7 @@ bool Tensor::permute(std::vector<int> axis_perm){
 float& Tensor::internal_get(std::vector<int> index){
     int real_idx = 0;
     int offset = 1;
-    for(int j=this->getDim()-1;j>=0;j--){
+    for(int j=this->schema.getDim()-1;j>=0;j--){
         real_idx += index[this->schema.getMap(j)]*offset;
         offset *= this->schema.realKdim(j);
     }
@@ -163,41 +245,51 @@ float& Tensor::get(std::vector<int> index){
 
 // Exp and Log
 Tensor* log(Tensor& tensor){
-    Tensor* result = newTensor(tensor.schema);
-    for (int j=0; j<tensor.getSize(); ++j){
-        result->content[j] = std::log(tensor.content[j]);
-    }
+    Tensor* result = newTensor(tensor);
+    FullIterator* resultIterator = new FullIterator(result);
+    FullIterator* sourceIterator = new FullIterator(&tensor);
+    resultIterator->open();
+    sourceIterator->open();
+    while(sourceIterator->hasNext()) resultIterator->next()=std::log(sourceIterator->next());
     return result;
 }
 Tensor* log(Tensor& tensor, float a){
     float k = log(a);
-    Tensor* result = newTensor(tensor.schema);
-    for (int j=0; j<tensor.getSize(); ++j){
-        result->content[j] = std::log(tensor.content[j])/k;
-    }
+    Tensor* result = newTensor(tensor);
+    FullIterator* resultIterator = new FullIterator(result);
+    FullIterator* sourceIterator = new FullIterator(&tensor);
+    resultIterator->open();
+    sourceIterator->open();
+    while(sourceIterator->hasNext()) resultIterator->next()=std::log(sourceIterator->next())/k;
     return result;
 }
 Tensor* exp(Tensor& tensor){
-    Tensor* result = newTensor(tensor.schema);
-    for (int j=0; j<tensor.getSize(); ++j){
-        result->content[j] = std::exp(tensor.content[j]);
-    }
+    Tensor* result = newTensor(tensor);
+    FullIterator* resultIterator = new FullIterator(result);
+    FullIterator* sourceIterator = new FullIterator(&tensor);
+    resultIterator->open();
+    sourceIterator->open();
+    while(sourceIterator->hasNext()) resultIterator->next()=std::exp(sourceIterator->next());
     return result;
 }
 // a is exponent.
 Tensor* pow(Tensor& tensor, float a){
-    Tensor* result = newTensor(tensor.schema);
-    for (int j=0; j<tensor.getSize(); ++j){
-        result->content[j] = std::pow(tensor.content[j],a);
-    }
+    Tensor* result = newTensor(tensor);
+    FullIterator* resultIterator = new FullIterator(result);
+    FullIterator* sourceIterator = new FullIterator(&tensor);
+    resultIterator->open();
+    sourceIterator->open();
+    while(sourceIterator->hasNext()) resultIterator->next()=std::pow(sourceIterator->next(),a);
     return result;
 }
 // a is base.
 Tensor* pow(float a, Tensor& tensor){
-    Tensor* result = newTensor(tensor.schema);
-    for (int j=0; j<tensor.getSize(); ++j){
-        result->content[j] = std::pow(a,tensor.content[j]);
-    }
+    Tensor* result = newTensor(tensor);
+    FullIterator* resultIterator = new FullIterator(result);
+    FullIterator* sourceIterator = new FullIterator(&tensor);
+    resultIterator->open();
+    sourceIterator->open();
+    while(sourceIterator->hasNext())  resultIterator->next()=std::pow(a,sourceIterator->next());
     return result;
 }
 void Tensor::log(){
@@ -219,10 +311,12 @@ void Tensor::exp(){
 
 // sqrt
 Tensor* sqrt(Tensor& tensor){
-    Tensor* result = newTensor(tensor.schema);
-    for (int j=0; j<tensor.getSize(); ++j){
-        result->content[j] = std::sqrt(tensor.content[j]);
-    }
+    Tensor* result = newTensor(tensor);
+    FullIterator* resultIterator = new FullIterator(result);
+    FullIterator* sourceIterator = new FullIterator(&tensor);
+    resultIterator->open();
+    sourceIterator->open();
+    while(sourceIterator->hasNext()) resultIterator->next()=std::sqrt(sourceIterator->next());
     return result;
 }
 void Tensor::sqrt(){
@@ -231,74 +325,71 @@ void Tensor::sqrt(){
     }
 }
 
-Tensor* matmul(Tensor& t1, Tensor& t2){
+Tensor* matmul(Tensor& t1, Tensor& t2, Tensor* out){
+    // Do not induce isViewed change.
     // (...,m,n) @ (...,n,k)
-    int m = t1.getKdim(-2);
-    int n = t1.getKdim(-1);
-    if (n!=t2.getKdim(-2)) return NULL;
-    int k = t2.getKdim(-1);
-    int N1 = t1.getSize()/(m*n);
-    int N2 = t2.getSize()/(n*k);
-    if ((N1!=N2) || (t1.getDim()!=t2.getDim())) return NULL;// No broadcasting for now!
-
-    // reshape to (N1,m,n) @ (N2,n,k)
-    std::vector<int> resShape = t1.schema.getShape();
-    Tensor* tensor1 = new Tensor(t1.schema,t1.content);
-    Tensor* tensor2 = new Tensor(t2.schema,t2.content);
-    // tensor1->reshape(3,{N1,m,n});
-    // tensor2->reshape(3,{N2,n,k});
-    
-    // initialize the result matrix (N1,m,k)
-    Tensor* result = new Tensor(tensor1->schema);
-    result->schema.setKdim(-2, m);
-    result->schema.setKdim(-1, k);
-    result->content = new float[result->getSize()];
-
-    for(int i=0;i<N1;++i){
-        // conduct N1 times matmul
-        for (int jl=0;jl<m;++jl){
-            for (int jr=0;jr<k;++jr){
+    if (!isBroadcastMulCompatible(t1,t2)) return NULL;
+    FullIterator* tensor1 = new FullIterator(&t1);
+    FullIterator* tensor2 = new FullIterator(&t2);
+    FullIterator* resultIterator = new FullIterator(out);
+    initBroadcastMul(t1,t2,tensor1,tensor2,resultIterator);
+    // matmul
+    while(resultIterator->hasNextSubTensor()){
+        // conduct N times matmul
+        tensor1->nextSubTensor();
+        tensor2->nextSubTensor();
+        resultIterator->nextSubTensor();
+        for (int jl=0;jl<t1.getKthdim(-2);++jl){
+            for (int jr=0;jr<t2.getKthdim(-1);++jr){
                 float temp = 0.0;
-                for (int b=0;b<n;++b){
-                    temp += tensor1->get({i,jl,b}) * tensor2->get({i,b,jr});
-                    // temp += tensor1->content[i*m*n+jl*n+b] * tensor2->content[i*n*k+b*k+jr];
+                for (int b=0;b<t1.getKthdim(-1);++b){
+                    temp += tensor1->subTensor_get({jl,b}) * tensor2->subTensor_get({b,jr});
                 }
-                result->get({i,jl,jr}) = temp;
+                resultIterator->subTensor_get({jl,jr}) = temp;
             }
         }
     }
-
-    // (N1,m,k) -> (...,m,k)
-    // result->schema.setShape(resShape);
-    result->schema.setKdim(-2, m);
-    result->schema.setKdim(-1, k);
-    // (...,m,k)
-    return result;
+    // return the result
+    return out;
 }
 
 // Basic Op
 Tensor* operator+(Tensor& t1, Tensor& t2){
-    if (!isCompatible(t1,t2)) return NULL;
-    Tensor* result = newTensor(t1.schema);
-    for (int j=0;j<t1.getSize();++j){
-        result->content[j] = t1.content[j] + t2.content[j];
+    FullIterator* tensor1 = new FullIterator(&t1);
+    FullIterator* tensor2 = new FullIterator(&t2);
+    Tensor* result = initBroadcast(t1,t2,tensor1,tensor2);
+    FullIterator* resultIterator = new FullIterator(result);
+    resultIterator->open();
+    while(resultIterator->hasNext()) {
+        resultIterator->next() = tensor1->next() + tensor2->next();
     }
     return result;
 }
 Tensor* operator-(Tensor& t1, Tensor& t2){
-    if (!isCompatible(t1,t2)) return NULL;
-    Tensor* result = newTensor(t1.schema);
-    for (int j=0;j<t1.getSize();++j){
-        result->content[j] = t1.content[j] - t2.content[j];
-    }
+    FullIterator* tensor1 = new FullIterator(&t1);
+    FullIterator* tensor2 = new FullIterator(&t2);
+    Tensor* result = initBroadcast(t1,t2,tensor1,tensor2);
+    FullIterator* resultIterator = new FullIterator(result);
+    resultIterator->open();
+    while(resultIterator->hasNext()) resultIterator->next() = tensor1->next() - tensor2->next();
     return result;
 }
 Tensor* operator*(Tensor& t1, Tensor& t2){
-    if (!isCompatible(t1,t2)) return NULL;
-    Tensor* result = newTensor(t1.schema);
-    for (int j=0;j<t1.getSize();++j){
-        result->content[j] = t1.content[j] * t2.content[j];
-    }
+    FullIterator* tensor1 = new FullIterator(&t1);
+    FullIterator* tensor2 = new FullIterator(&t2);
+    Tensor* result = initBroadcast(t1,t2,tensor1,tensor2);
+    FullIterator* resultIterator = new FullIterator(result);
+    resultIterator->open();
+    while(resultIterator->hasNext()) resultIterator->next() = tensor1->next() * tensor2->next();
+    return result;
+}
+Tensor* operator/(Tensor& t1, Tensor& t2){
+    FullIterator* tensor1 = new FullIterator(&t1);
+    FullIterator* tensor2 = new FullIterator(&t2);
+    Tensor* result = initBroadcast(t1,t2,tensor1,tensor2);
+    FullIterator* resultIterator = new FullIterator(result);
+    resultIterator->open();
+    while(resultIterator->hasNext()) resultIterator->next() = tensor1->next() / tensor2->next();
     return result;
 }
 

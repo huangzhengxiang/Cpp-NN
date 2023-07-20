@@ -10,10 +10,11 @@
 
 #include "Schema.hpp"
 
-
 class Tensor;
 
+Tensor* newTensor(Tensor& tensor);
 Tensor* newTensor(Schema& schema);
+Tensor* zero_like(Tensor& tensor);
 
 // Basic Op
 Tensor* operator+(Tensor& t1, Tensor& t2);
@@ -43,7 +44,7 @@ Tensor* operator*(Tensor& t1, Tensor& t2);
 // Tensor* operator/(Tensor& tensor, double a);
 
 // Matrix Multiplication
-Tensor* matmul(Tensor& t1, Tensor& t2);
+Tensor* matmul(Tensor& t1, Tensor& t2, Tensor* out);
 
 // Exp and Log
 Tensor* log(Tensor& tensor);
@@ -56,12 +57,14 @@ Tensor* sqrt(Tensor& tensor);
 
 // isCompatible
 bool isCompatible(Tensor& t1, Tensor& t2);
+bool isBroadcastCompatible(Tensor& t_big, Tensor& t_small);
+// bool isBroadcastMulCompatible(Tensor& t_left, Tensor& t_right, FullIterator* it_left, FullIterator* it_right, FullIterator* it_result);
 
 class Tensor{
 private:
     Schema schema;
     float* content;
-    // user-level view
+    // user-level view, 2 vectors are of the same size!
     bool isViewed;
     std::vector<int> occupancy_map;
     std::vector<int> user_view;
@@ -77,26 +80,27 @@ public:
     Tensor(Schema other, float* pointer);
     // set the content
     void init(float* pointer);
-    // reshaping
-    // void reshape(int d, std::vector<int> s);
-    // void reshape(int d, int* s);
     // getDim, getSize, getKdim, getShape...
-    int getDim(){return this->schema.getDim();}
+    int getDim();
     int getSize(){return this->schema.getSize();}
     int getKthdim(int k);
-    void setKdim(int k, int d); //Shall not be performed on view!
+    void setKdim(int k, int d);                 //Shall not be performed on view!
     std::vector<int> getShape();
     Schema getSchema(){return this->schema;}
     bool& require_grad(){return this->schema.require_grad();}
     // get item()
-    float& get(std::vector<int> index); // external get (user-level view)
+    float& get(std::vector<int> index);         // external get (user-level view)
     // shape manipulation
-    bool permute(std::vector<int> axis_perm); // If viewed, no permutation permitted!
+    bool permute(std::vector<int> axis_perm);   // If viewed, no permutation permitted!
     void view(std::vector<int> new_view);
+    void view();                                // ensure it is viewed.
     void deview(){this->isViewed=false;}
+    bool viewed(){return this->isViewed;}
     // friends
+    // generate a new tensor of exactly the same shape.
+    friend Tensor* newTensor(Tensor& tensor);
     friend Tensor* newTensor(Schema& schema);
-    friend bool isCompatible(Tensor& t1, Tensor& t2);
+    friend Tensor* zero_like(Tensor& tensor);
     // exp and log
     friend Tensor* log(Tensor& tensor);
     friend Tensor* log(Tensor& tensor, float a);
@@ -110,7 +114,7 @@ public:
     friend Tensor* sqrt(Tensor& tensor);
     void sqrt();
     // Matrix Multiplication
-    friend Tensor* matmul(Tensor& t1, Tensor& t2);
+    friend Tensor* matmul(Tensor& t1, Tensor& t2, Tensor* out);
     // Basic Op
     friend Tensor* operator+(Tensor& t1, Tensor& t2);
     // friend Tensor* operator+(int a, Tensor& tensor);
@@ -133,7 +137,7 @@ public:
     // friend Tensor* operator*(Tensor& tensor, int a);
     // friend Tensor* operator*(Tensor& tensor, float a);
     // friend Tensor* operator*(Tensor& tensor, double a);
-    // friend Tensor* operator/(Tensor& t1, Tensor& t2);
+    friend Tensor* operator/(Tensor& t1, Tensor& t2);
     // friend Tensor* operator/(Tensor& tensor, int a);
     // friend Tensor* operator/(Tensor& tensor, float a);
     // friend Tensor* operator/(Tensor& tensor, double a);
@@ -142,7 +146,7 @@ public:
     void print();
     void printShape();
     // destructor
-    void destruct(){delete content;}
+    void destruct(){delete []content;}
     ~Tensor(){} 
 };
 
