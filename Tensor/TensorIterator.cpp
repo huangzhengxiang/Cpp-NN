@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <vector>
 #include "TensorIterator.hpp"
 #include "CppNN/Tensor.hpp"

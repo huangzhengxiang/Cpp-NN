@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "Linear.hpp"
 #include "CppNN/Tensor.hpp"
 
@@ -8,7 +9,7 @@ Tensor* Linear::forward(Tensor& input){
         results (Not a view): (N,out_features,...)
     */
     // mid_result: (N,out_features,...)
-    Schema resSchema = Schema(input.getShape(),this->weight->require_grad());
+    Schema resSchema(input.getShape(),this->weight->require_grad());
     resSchema.setKdim(1,this->out_features);
     Tensor* mid_result = newTensor(resSchema);
     // input: (N,in_features,...) -> (N,...,in_features,1) (view)

@@ -4,6 +4,7 @@
  *  Created on: 2023/7/12
  *      Author: hzx
  */
+#include <stdio.h>
 #include <cmath>
 #include <vector>
 #include "Schema.hpp"
