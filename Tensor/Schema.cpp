@@ -5,6 +5,7 @@
  *      Author: hzx
  */
 #include "Schema.hpp"
+#include <cstdio>
 
 bool isCompatible(Schema& t1, Schema& t2){
     if (t1.getDim()!=t2.getDim()) return false;
